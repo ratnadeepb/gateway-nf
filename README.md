@@ -53,11 +53,11 @@ This allows the gateway to replay all unacknowledged packets in case of a backen
 
 ## Shared Memory
 
-![Shared Memory](gateway_nf/SIFT_Shared_Memory.png "Shared Memory")
+![Shared Memory](SIFT_Shared_Memory.png "Shared Memory")
 
 ## Notifications
 
-![Redis Notifications](gateway_nf/SIFT_Redis_Notification.png "Notifications")
+![Redis Notifications](SIFT_Redis_Notification.png "Notifications")
 
 ## Advantages
 
