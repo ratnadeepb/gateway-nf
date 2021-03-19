@@ -57,3 +57,17 @@ This allows the gateway to replay all unacknowledged packets in case of a backen
 ## Notifications
 
 ![Redis Notifications](gateway_nf/SIFT_Redis_Notification.png "Notifications")
+
+## Advantages
+
+- no requirement for explicit synchronisation between NFs and the gateway/mgr
+- all connections are completely isolated
+- no NF can directly modify data; modifications are verified
+- connection state is maintained and can be replayed
+- NF registration and per-packet bitmaps allow to recover from NF failures
+
+## Challenges
+
+- records are disassociated from `rte_mbuf` structs. While this enhances security, it also means that an explicit mapping between `rte_mbufs` and record need to be maintained
+- verifying and merging modified data need to be fast
+- the connection state being maintained may not form fully formed application level messages and replays may be meaningless without synchronisation with an application layer gateway
