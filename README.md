@@ -11,7 +11,7 @@ It is a framework to assist in writing network functions where:
 
 - the gateway NF creates a ***shared memory file for each active connection*** triggered by the first packet of a new connection
 - each packet is passed to the gateway NF which creates a ***record struct by extracting IP and TCP header information***
-- the records are stored in shared the memory files corresponding to the connection to which the packet belongs. This ***dissassociates the data buffer from the header and prevents NFs from directly accessing packet data***
+- the records are stored in the shared memory files corresponding to the connection to which the packet belongs. This dissassociates the data buffer from the header and ***prevents NFs from directly accessing packet data***
 - if NFs need to change some data, like rewriting destination IP or port, then that change is sent to the ***gateway NF which will verify the changes and merge into the record***
 
 ## NF Bitmaps
@@ -20,9 +20,10 @@ The gateway NF holds a ***global bitmap where each bit is mapped to a registered
 
 Every record also holds a corresponding bitmap indicating which NFs have completed processing this record. ***Comparing per-record bitmaps to the global bitmap allows the gateway to determine which packets have been completely processed***
 
-The per packet and global bitmaps enable the gateway to partiotion records into `processed` and `completed` (Look at `Gateway Entry Structs`).
-
-Further, they enable the gateway to know which NFs are yet to process a record and allows to recover easily from NF failures.
+- the per packet and global bitmaps enable the gateway to partiotion records into `processed` and `completed` (Look at `Gateway Entry Structs`).
+- plus they enable the gateway to know which NFs are yet to process a record and allows to recover easily from NF failures.
+- the global bitmap also allows the gateway to track authorised NFs
+- further maintaining a per-connection bitmap will enable NFs to register for specific connections only
 
 ## Record Removal
 
