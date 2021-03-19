@@ -20,7 +20,7 @@ The gateway NF holds a ***global bitmap where each bit is mapped to a registered
 
 Every record also holds a corresponding bitmap indicating which NFs have completed processing this record. ***Comparing per-record bitmaps to the global bitmap allows the gateway to determine which packets have been completely processed***
 
-- the per packet and global bitmaps enable the gateway to partiotion records into `processed` and `completed` (Look at `Gateway Entry Structs`).
+- the per packet and global bitmaps enable the gateway to partition records into `processed` and `completed` (look at `Gateway Entry Structs`).
 - plus they enable the gateway to know which NFs are yet to process a record and allows to recover easily from NF failures.
 - the global bitmap also allows the gateway to track authorised NFs
 - further maintaining a per-connection bitmap will enable NFs to register for specific connections only
@@ -34,7 +34,7 @@ Records are ***removed*** from the shared files only ***when*** an ***acknowledg
 - first packet of each connection is given a random 64 bit ID
 - subsequent packets get an ID incremented by 1. the `rte_mbuf` struct is stored separately with the ID to identify the buffer associated with the record later
 - a redis server holds the identity of every connection and the latest record ID
-- whenever a new packet arrives and new record is created, the redis key is updated (typically in bursts). The NFs are informed through Redis keyspace notifications
+- whenever a new packet arrives and new record is created, the redis key is updated (typically in bursts) and the NFs are informed through Redis keyspace notifications
 
 ## Entry Structs
 
