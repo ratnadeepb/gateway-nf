@@ -5,7 +5,7 @@ It is a framework to assist in writing network functions where:
 
 1. each connection is isolated
 2. the data is immutable for the NFs
-3. all connections maintain their state and can be completely replayed back in case of failure of backend or NFs
+3. all connections maintain their state and can be completely replayed back in case of failure of backends or NFs
 
 ## Overall Design
 
