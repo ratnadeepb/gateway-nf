@@ -56,4 +56,4 @@ This allows the gateway to replay all unacknowledged packets in case of a backen
 
 ## Notifications
 
-![Notifications](gateway_nf/SIFT_Redis_Notification.png "Notifications")
+![Redis Notifications](gateway_nf/SIFT_Redis_Notification.png "Notifications")
