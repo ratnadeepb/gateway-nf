@@ -1,6 +1,6 @@
 # SIFT: Secure, Isolated and Fault Tolerant Packet Processing
 
-SIFT is built on top of [openNetVM](https://github.com/sdnfv/openNetVM)
+SIFT is built on top of [openNetVM](https://github.com/sdnfv/openNetVM)<br>
 It is a framework to assist in writing network functions where:
 
 1. each connection is isolated
