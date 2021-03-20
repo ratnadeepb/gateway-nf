@@ -1,11 +1,17 @@
 #pragma once
 
+#include "hiredis.h"
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define PID_FILE "/run/onvm_gateway_nf.pid" /* our pid file */
+#define NF_TAG_FILE "/run/onvm_nf_tags" /* list of all NFs registering with the gateway */
+
 #define NUM_SLOTS 512   /* each slot corresponds to a header */
+
+#define MAX_NF_TAG_SZ 30
 
 const char CONNECTION_BASE_NAME[] = "/dev/shm/conn_";
 
@@ -20,23 +26,27 @@ enum { BITS_PER_WORD = sizeof(word_t) * CHAR_BIT };
 #define WORD_OFFSET(b) ((b) / BITS_PER_WORD)
 #define BIT_OFFSET(b) ((b) % BITS_PER_WORD)
 
-void set_bit(word_t *words, int n)
+void
+set_bit(word_t *words, int n)
 {
 	words[WORD_OFFSET(n)] |= ((word_t)1 << BIT_OFFSET(n));
 }
 
-void clear_bit(word_t *words, int n)
+void
+clear_bit(word_t *words, int n)
 {
 	words[WORD_OFFSET(n)] &= ~((word_t)1 << BIT_OFFSET(n));
 }
 
-int get_bit(word_t *words, int n)
+int
+get_bit(word_t *words, int n)
 {
 	word_t bit = words[WORD_OFFSET(n)] & ((word_t)1 << BIT_OFFSET(n));
 	return bit != 0;
 }
 
-int first_free_bit(word_t *word)
+int
+first_free_bit(word_t *word)
 {
 	int i;
 	for (i = 0; i < BITS_PER_WORD; i++) {
@@ -133,7 +143,7 @@ void copy_record(Record *rec, Record *mem, off_t offset)
 /* register an NF
  * returns an ID for the NF
  */
-int register_nf(char *nf_name);
+bool register_nf(char *nf_name);
 
 /* create a memory region for a new incoming connection
  * returns a gateway entry struct
