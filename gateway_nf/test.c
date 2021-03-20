@@ -9,6 +9,8 @@
 #include <inttypes.h>
 #include <signal.h>
 #include <pthread.h>
+#include <math.h>
+#include <errno.h>
 
 static redisContext *RCONTEXT; /* a global connection to the Redis DB */
 static FILE *NF_TAG_STRM;
@@ -16,7 +18,150 @@ static bool keep_running = true;
 
 static word_t GLOBAL_BITMAP = 0;
 
+/* maintain a list of all registered NFs */
 static char NF_LIST[sizeof(uint64_t)][MAX_NF_TAG_SZ];
+
+/* maintain a list of all active connections */
+static GEntry CONN_LIST[NUM_MAX_CONNS];
+
+off_t
+incr_record_ptr(off_t ptr)
+{
+	return (ptr + 1) % NUM_SLOTS;
+}
+
+bool
+is_record_queue_free(GEntry *conn)
+{
+	off_t nxt_head = incr_record_ptr(conn->entry.head);
+	if (nxt_head == conn->completed_tail) return false;
+	return true;
+}
+
+bool
+add_connections(GEntry new_conn)
+{
+	printf("add_connections - file_name: %s\n", new_conn.entry.file_name);
+	int pos;
+	for (pos = 0; pos < NUM_MAX_CONNS; pos++) {
+		GEntry *conn = &CONN_LIST[pos];
+		printf("add_connections - pos: %d\n", pos);
+		if (!conn->entry.file_name) {
+			printf("add_connections - adding to pos: %d\n", pos);
+			CONN_LIST[pos] = new_conn;
+			printf("added connection\n");
+			return true;
+		}
+	}
+	return false;
+}
+
+GEntry *
+lookup_connection(char *conn_hash)
+{
+	size_t sz = strlen(CONNECTION_BASE_NAME) + strlen(conn_hash) + 1;
+	char *query = (char *)malloc(sz);
+	memset(query, 0, sz);
+	strncpy(query, CONNECTION_BASE_NAME, strlen(CONNECTION_BASE_NAME));
+	strcat(query, conn_hash);
+	int pos;
+	for (pos = 0; pos < NUM_MAX_CONNS; pos++) {
+		GEntry *conn = &CONN_LIST[pos];
+		if (!conn->entry.file_name) break;
+		if (strncmp(conn->entry.file_name, query, strlen(query)) == 0)
+			return &CONN_LIST[pos];
+	}
+	return NULL;
+}
+
+#define HASH_KEY 0x0f
+// static uint64_t CURRENT_ID = 0; /* we can change this to some other scheme later */
+
+uint32_t
+record_hash(Record *rec)
+{
+	uint32_t res = rec->connection.dst_ip ^ rec->connection.src_ip
+	^ rec->connection.dst_port ^ rec->connection.src_port;
+	return res ^ HASH_KEY;
+}
+
+uint64_t
+allocate_id_n_update_redis(uint32_t hash)
+{
+	char *query = (char *)malloc(strlen("conn_") + sizeof(uint32_t) + 1);
+	strncpy(query, "conn_", strlen("conn_"));
+	char *h = (char *)malloc(sizeof(uint32_t) + 1);
+	sprintf(h, "%"PRIu32, hash);
+	strcat(query, h);
+	uint64_t id = 0;
+	uint64_t ret = redis_get_latest_rec(query);
+	if (ret == 0) {
+		/* this is a new connection */
+		srand(time(NULL));
+		GEntry new_conn = create_gw_region(query); /* create a new memory region for the new conn */
+		add_connections(new_conn); /* add to known connections */
+		uint64_t id = rand(); /* create a new id */
+		redis_add_latest_rec(query, id); /* add connection to redis */
+		/* add to global map of connections */
+	} else {
+		id = ret++; /* in Ubuntu this wraps around */
+		redis_add_latest_rec(query, id); /* update redis */
+	}
+	return id;
+}
+
+/* sets errno if out of memory */
+void
+add_record_to_file(uint32_t hash, Record *rec)
+{
+	size_t sz = strlen("conn_") + sizeof(uint32_t) + 1;
+	char *query = (char *)malloc(sz);
+	memset(query, 0, sz);
+	strncpy(query, "conn_", strlen("conn_"));
+	char *h = (char *)malloc(sizeof(uint32_t) + 1);
+	sprintf(h, "%"PRIu32, hash);
+	strcat(query, h);
+	GEntry *conn = lookup_connection(query);
+	if (!conn) {
+		errno = ENOMEM;
+		return;
+	}
+	if (is_record_queue_free(conn)) {
+		off_t nxt_head = incr_record_ptr(conn->entry.head);
+		Record *loc = conn->entry.mem + nxt_head;
+		memmove((void *)loc, (void *)rec, sizeof(Record));
+	} else {
+		errno = ENOMEM;
+	}
+}
+
+void
+add_record(int16_t rx_win,
+	uint32_t seq_num,
+	uint32_t ack_num,
+	uint32_t dst_ip,
+	uint32_t src_ip,
+	uint16_t dst_port,
+	uint16_t src_port)
+{
+	Record rec = {
+		.id = 0,
+		.nf_map = 0,
+		.connection = {
+			.rx_win = rx_win,
+			.seq_num = seq_num,
+			.ack_num = ack_num,
+			.dst_ip = dst_ip,
+			.src_ip = src_ip,
+			.dst_port = dst_port,
+			.src_port = src_port,
+		},
+		.drop_packet = false,
+	};
+	uint32_t hash = record_hash(&rec);
+	rec.id = allocate_id_n_update_redis(hash);
+	add_record_to_file(hash, &rec);
+}
 
 bool
 register_nf(char *nf_name)
@@ -56,7 +201,7 @@ handle_user_signals(int signal)
 }
 
 bool
-redis_add(char *conn_name, uint64_t id)
+redis_add_latest_rec(char *conn_name, uint64_t id)
 {
 	bool res = false;
 
@@ -77,6 +222,8 @@ redis_add(char *conn_name, uint64_t id)
 	strcat(cmd, " ");
 	strcat(cmd, val);
 
+	printf("in redis_add_latest_rec: cmd: %s\n", cmd); // DEBUG:
+
 	reply = redisCommand(RCONTEXT, cmd);
 	if ((int)reply->dval == 0) res = true;
 	freeReplyObject(reply);
@@ -84,7 +231,7 @@ redis_add(char *conn_name, uint64_t id)
 }
 
 uint64_t
-redis_get_record_id(char *conn_name)
+redis_get_latest_rec(char *conn_name)
 {
 	redisReply *reply;
 	uint64_t res;
@@ -95,11 +242,16 @@ redis_get_record_id(char *conn_name)
 
 	reply = redisCommand(RCONTEXT, query);
 
-	char c;
-	int scanned = sscanf(reply->str, "%"PRIu64 "%c", &res, &c);
-	freeReplyObject(reply);
-	if (scanned >= 1) return res;
-	else return 0;
+	if (reply->str == NULL) /* key not found */ {
+		res = 0;
+	} else {
+		char c;
+		int scanned = sscanf(reply->str, "%"PRIu64 "%c", &res, &c);
+		freeReplyObject(reply);
+		if (scanned >= 1) return res;
+		else return 0;
+	}
+	return 0;
 }
 
 bool
@@ -108,7 +260,6 @@ compare_entry(const Entry *lhs, const Entry *rhs)
 	/* since each connection has its own Entry, it's enough to compare either the
 	 * pointers or the file names for equality
 	 */
-	// if (strncmp(lhs->file_name, rhs->file_name, sizeof(lhs->file_name)) != 0) return false;
 	if (lhs->mem == rhs->mem) return true;
 	return false;
 }
@@ -213,24 +364,36 @@ main(void)
 	/* open the nf_tag_file */
 	create_nf_tag_list_file();
 
+	RCONTEXT = redisConnect("127.0.0.1", 6379);
+	if (RCONTEXT != NULL && RCONTEXT->err) printf("Error %s\n", RCONTEXT->errstr);
+	else printf("connected to redis\n");
+
 	signal(SIGUSR1, handle_user_signals);
 	signal(SIGKILL, handle_kill_signal);
 	signal(SIGQUIT, handle_kill_signal);
 	signal(SIGINT, handle_kill_signal);
 
+	/* create a record for testing */
+	int16_t rx_win = 10;
+	uint32_t seq_num = 11;
+	uint32_t ack_num = 12;
+	u_int32_t dst_ip = 13;
+	uint32_t src_ip = 14;
+	uint16_t src_port = 5;
+	uint16_t dst_port = 6;
+
+	add_record(rx_win, seq_num, ack_num, dst_ip, src_ip, dst_port, src_port);
+
+	/* every connection has the format `conn_hash_val` */
 	char conn_name[] = "conn1";
 	GEntry test_conn = create_gw_region(conn_name);
 	if (compare_gentry(&test_conn, &GDEF)) return EXIT_FAILURE;
 	printf("successfully created Entry struct for conn\n");
 
 	/* redis test */
-	RCONTEXT = redisConnect("localhost", 6379);
-	if (RCONTEXT != NULL && RCONTEXT->err) printf("Error %s\n", RCONTEXT->errstr);
-	else printf("connected to redis\n");
-
 	uint64_t v = 9845;
-	if (redis_add(conn_name, v)) printf("added to redis\n");
-	uint64_t res = redis_get_record_id(conn_name);
+	if (redis_add_latest_rec(conn_name, v)) printf("added to redis\n");
+	uint64_t res = redis_get_latest_rec(conn_name);
 	if (res == 0) printf("no data found\n");
 	else printf("result: %"PRIu64"\n", res);
 

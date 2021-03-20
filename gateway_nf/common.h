@@ -9,11 +9,12 @@
 #define PID_FILE "/run/onvm_gateway_nf.pid" /* our pid file */
 #define NF_TAG_FILE "/run/onvm_nf_tags" /* list of all NFs registering with the gateway */
 
+#define NUM_MAX_CONNS 1024 /* handle at most 1024 simultaneous connections */
 #define NUM_SLOTS 512   /* each slot corresponds to a header */
 
 #define MAX_NF_TAG_SZ 30
 
-const char CONNECTION_BASE_NAME[] = "/dev/shm/conn_";
+const char CONNECTION_BASE_NAME[] = "/dev/shm/";
 
 typedef enum { false=0, true } bool;
 
@@ -107,7 +108,7 @@ typedef struct getway_entry {
 // const Entry EDEF = {.file_name = "", .mem = NULL, .head = -1, .tail = -1};
 const GEntry GDEF = {
 	.entry = {
-		.file_name = "",
+		.file_name = NULL,
 		.mem = NULL,
 		.head = -1,
 		.tail = -1,
@@ -156,9 +157,21 @@ GEntry create_gw_region(char *conn_name);
  * conn_name is the identifier for a connection
  * id is the id of the latest record added to this connection
  */
-bool redis_add(char *conn_name, uint64_t id);
+bool redis_add_latest_rec(char *conn_name, uint64_t id);
 
 /* get record from the redis db
  * get the latest record id for the given connection
  */
-uint64_t redis_get_record_id(char *conn_name);
+uint64_t redis_get_latest_rec(char *conn_name);
+
+/* add header to the db */
+// the signature would be later changed to the next line
+// void add_record(struct rte_mbuf *pkt);
+// for now, we will test with this one
+void add_record(int16_t rx_win,
+	uint32_t seq_num,
+	uint32_t ack_num,
+	uint32_t dst_ip,
+	uint32_t src_ip,
+	uint16_t dst_port,
+	uint16_t src_port);
