@@ -72,3 +72,8 @@ This allows the gateway to replay all unacknowledged packets in case of a backen
 - records are disassociated from `rte_mbuf` structs. While this enhances security, it also means that an explicit mapping between `rte_mbufs` and record need to be maintained
 - verifying and merging modified data need to be fast
 - the connection state being maintained may not form fully formed application level messages and replays may be meaningless without synchronisation with an application layer gateway
+
+## Note on Testing
+
+1. If keys added to redis are not removed, the program may throw `segmentation faults` - `redis-cli flushall`
+
