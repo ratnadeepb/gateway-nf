@@ -3,3 +3,4 @@ shr_mem
 .vscode
 hiredis/*
 *.o
+*.so
