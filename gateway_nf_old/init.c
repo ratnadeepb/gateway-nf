@@ -7,16 +7,16 @@ void create_regions()
 
 	int c_fd = open(BASE_COMPL_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 
-	if (p_fd == -1) perror("error creating processing area\n");
-	if (c_fd == -1) perror("error creating completed area\n");
+	if (p_fd == -1) perror("error creating processing area");
+	if (c_fd == -1) perror("error creating completed area");
 
 	if (ftruncate(p_fd, NUM_PAGES * NUM_SLOTS * sizeof(Record)) != 0) {
-		perror("p truncate failure\n");
+		perror("p truncate failure");
 		return EXIT_FAILURE;
 	}
 
 	if (ftruncate(c_fd, NUM_PAGES * NUM_SLOTS * sizeof(Record)) != 0) {
-		perror("c truncate failure\n");
+		perror("c truncate failure");
 		return EXIT_FAILURE;
 	}
 
@@ -32,13 +32,13 @@ void create_regions()
 
 	Record *p_mem = mmap(NULL, p_sb.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, p_fd, 0);
 	if (p_mem == MAP_FAILED) {
-		perror("p mapping failed\n");
+		perror("p mapping failed");
 		return EXIT_FAILURE;
 	}
 
 	Record *c_mem = mmap(NULL, c_sb.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, c_fd, 0);
 	if (c_mem == MAP_FAILED) {
-		perror("c mapping failed\n");
+		perror("c mapping failed");
 		return EXIT_FAILURE;
 	}
 
