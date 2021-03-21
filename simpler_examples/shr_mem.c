@@ -14,7 +14,7 @@
 /* for INT_MAX and INT_MAN */
 #include <limits.h>
 
-/* for EXIT_SUCCESS, EXIT_FAILURE etc */
+
 #include <stdlib.h>
 
 /* for NULL and ftruncate */
@@ -63,14 +63,16 @@ Record new_record(Conn connection, int16_t id, bool drop_packet)
  * @mem -> head of the memory region to hold the records queue
  * @offset -> where in the queue the new record needs to be stored at
  */
-void alter_dst_ip(Record *rec, Record *mem, off_t offset)
+void
+alter_dst_ip(Record *rec, Record *mem, off_t offset)
 {
 	Record *ptr = mem + offset;
 	memcpy(ptr, rec, sizeof(Record));
 	ptr->connection.dst_ip += 1;
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
 	long srv;
 	if (argc > 0) {

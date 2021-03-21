@@ -1,7 +1,8 @@
 #include "hiredis/hiredis.h"
 #include <stdlib.h>
 
-int main()
+int
+main(void)
 {
 	redisContext *c = redisConnect("localhost", 6379);
 	if (c != NULL && c->err) printf("Error %s\n", c->errstr);
