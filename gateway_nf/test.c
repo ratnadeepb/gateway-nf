@@ -13,9 +13,12 @@
 #include <errno.h>
 
 static redisContext *RCONTEXT; /* a global connection to the Redis DB */
+/* the main thread keeps reading from this stream to check if a new NF has joined */
 static FILE *NF_TAG_STRM;
+/* user signal turns this falls and the program quits and cleans up */
 static bool keep_running = true;
 
+/* registry of all NFs */
 static word_t GLOBAL_BITMAP = 0;
 
 /* maintain a list of all registered NFs */
@@ -24,12 +27,14 @@ static char NF_LIST[sizeof(uint64_t)][MAX_NF_TAG_SZ];
 /* maintain a list of all active connections */
 static GEntry CONN_LIST[NUM_MAX_CONNS];
 
+/* increment a pointer in a connection memory segment */
 off_t
 incr_record_ptr(off_t ptr)
 {
 	return (ptr + 1) % NUM_SLOTS;
 }
 
+/* check if there is place for one more record for the given connection */
 bool
 is_record_queue_free(GEntry *conn)
 {
@@ -38,24 +43,24 @@ is_record_queue_free(GEntry *conn)
 	return true;
 }
 
+/* add a new connection to the system */
 bool
 add_connections(GEntry new_conn)
 {
-	printf("add_connections - file_name: %s\n", new_conn.entry.file_name);
 	int pos;
 	for (pos = 0; pos < NUM_MAX_CONNS; pos++) {
 		GEntry *conn = &CONN_LIST[pos];
-		printf("add_connections - pos: %d\n", pos);
 		if (!conn->entry.file_name) {
-			printf("add_connections - adding to pos: %d\n", pos);
 			CONN_LIST[pos] = new_conn;
-			printf("added connection\n");
 			return true;
 		}
 	}
 	return false;
 }
 
+/* search through the connection list
+ * conn_hash: `conn_<hash_value>
+ */
 GEntry *
 lookup_connection(char *conn_hash)
 {
@@ -75,8 +80,8 @@ lookup_connection(char *conn_hash)
 }
 
 #define HASH_KEY 0x0f
-// static uint64_t CURRENT_ID = 0; /* we can change this to some other scheme later */
 
+/* create the hash of a connection */
 uint32_t
 record_hash(Record *rec)
 {
@@ -85,6 +90,7 @@ record_hash(Record *rec)
 	return res ^ HASH_KEY;
 }
 
+/* allocate ID for a new record and update the Redis key as well */
 uint64_t
 allocate_id_n_update_redis(uint32_t hash)
 {
@@ -135,6 +141,9 @@ add_record_to_file(uint32_t hash, Record *rec)
 	}
 }
 
+/* add a record to the connection's memory segment
+ * might fail by setting errorno
+ */
 void
 add_record(int16_t rx_win,
 	uint32_t seq_num,
@@ -163,6 +172,7 @@ add_record(int16_t rx_win,
 	add_record_to_file(hash, &rec);
 }
 
+/* register a new NF to the system */
 bool
 register_nf(char *nf_name)
 {
@@ -181,6 +191,10 @@ register_nf(char *nf_name)
 	return true;
 }
 
+/* NFs register with gateway by sending SIGUSR1
+ * they append a name tag into the nf tag file
+ * upon receiving SIGUSR1, the gateway reads the file and gets the new tag and registers the NF
+ */
 void
 handle_user_signals(int signal)
 {
@@ -200,6 +214,9 @@ handle_user_signals(int signal)
 	}
 }
 
+/* add a record id to the connection key
+ * conn_name: `conn_<hash_value>`
+ */
 bool
 redis_add_latest_rec(char *conn_name, uint64_t id)
 {
@@ -230,6 +247,7 @@ redis_add_latest_rec(char *conn_name, uint64_t id)
 	return res;
 }
 
+/* get the latest ID of a connection from Redis */
 uint64_t
 redis_get_latest_rec(char *conn_name)
 {
@@ -254,6 +272,7 @@ redis_get_latest_rec(char *conn_name)
 	return 0;
 }
 
+/* Compare two entry structs */
 bool
 compare_entry(const Entry *lhs, const Entry *rhs)
 {
@@ -264,6 +283,7 @@ compare_entry(const Entry *lhs, const Entry *rhs)
 	return false;
 }
 
+/* Compare two gateway entry structs */
 bool
 compare_gentry(const GEntry *lhs, const GEntry *rhs)
 {
@@ -271,6 +291,10 @@ compare_gentry(const GEntry *lhs, const GEntry *rhs)
 	return compare_entry(&lhs->entry, &rhs->entry);
 }
 
+/* store the pid of the gateway in a /run file
+ * this is how the NFs know the pid of the NF
+ * and send a signal to it for registration
+ */
 bool
 store_pid()
 {
@@ -290,6 +314,7 @@ store_pid()
 	return true;
 }
 
+/* create the file and a stream off it for NFs to register */
 void
 create_nf_tag_list_file()
 {
@@ -298,6 +323,7 @@ create_nf_tag_list_file()
 	NF_TAG_STRM = fopen(NF_TAG_FILE, "r");
 }
 
+/* create a new memory segment for a connection and return the corresponding entry struct */
 GEntry
 create_gw_region(char *conn_name)
 {
@@ -347,6 +373,11 @@ handle_kill_signal(int signal)
 	keep_running = false;
 }
 
+/* main work loop
+ * receive packets
+ * create records
+ * and update redis
+ */
 void *
 run_loop(void *arg)
 {
@@ -408,11 +439,15 @@ main(void)
 	if (pthread_attr_destroy(&attr) != 0) perror("attribute destroy");
 	if (pthread_join(thrd, NULL) != 0) perror("thread join");
 
-	printf("out of loop\n");
+	printf("main loop ended\n");
 
 
 	/* after all is over */
-	// redisFree(RCONTEXT);
+	redisReply *reply;
+	reply = redisCommand(RCONTEXT, "flushall");
+	printf("clearing redis out: %s\n", reply->str);
+	freeReplyObject(reply);
+	redisFree(RCONTEXT);
 	/* remove the pid file */
 	if (remove(PID_FILE) == -1) perror("failed to remove pid file");
 	if (fclose(NF_TAG_STRM) != 0) perror("failed to close nf tag stream");

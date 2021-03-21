@@ -11,13 +11,13 @@
 ## Set up Pulishing all Keyspace Events
 
 ```bash
-src/redis-cli config set notify-keyspace-events KEA
+redis-cli config set notify-keyspace-events KEA
 ```
 
 ## Subscribe to all Keyspace Events
 
 ```bash
-src/redis-cli psubscribe '__key*__:*'
+redis-cli psubscribe '__key*__:*'
 ```
 
 ## Connecting to a Redis Server in the Host Namespace from a container
