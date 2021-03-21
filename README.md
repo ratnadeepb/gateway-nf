@@ -75,5 +75,4 @@ This allows the gateway to replay all unacknowledged packets in case of a backen
 
 ## Note on Testing
 
-1. If keys added to redis are not removed, the program may throw `segmentation faults` - `redis-cli flushall`
-
+1. If keys added to redis are not removed, the program may throw `segmentation faults` - `redis-cli flushall`; this is added to the test code

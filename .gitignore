@@ -1,3 +1,5 @@
 redis-6.2.1*
 shr_mem
 .vscode
+hiredis/*
+*.o
