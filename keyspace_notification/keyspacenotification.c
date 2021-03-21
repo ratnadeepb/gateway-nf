@@ -3,13 +3,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <inttypes.h>
 #include <adapters/libevent.h>
 
 void
-handle_set_event(const char* key, const char *event)
+handle_set_event(const keyspace_notifier *n, const char *event)
 {
-	printf("key: %s\n", key);
 	printf("event: %s\n", event);
+	uint64_t res;
+	redisReply * r = notifier_issue_redis_command(n, event);
+	if (!r->str) printf("key not found: this is a disaster\n");
+	char c;
+	int scanned = sscanf(r->str, "%"PRIu64 "%c", &res, &c);
+	freeReplyObject(r);
+	if (scanned >= 1) printf("queried value: %" PRIu64 "\n", res);
+	else printf("what a horrible business\n");
 }
 
 void
@@ -51,9 +59,8 @@ _handle_redis_array_reply(redisReply *r, const keyspace_notifier *n)
 {
 	if (r->elements == 3) {
 		if (strncmp(r->element[0]->str, "message", strlen("message")) == 0) {
-			char *key = r->element[1]->str;
 			char *val = r->element[2]->str;
-			handle_set_event(key, val);
+			handle_set_event(n, val);
 		}
 	}
 }
@@ -66,8 +73,6 @@ on_message(redisAsyncContext *c, void *reply, void *privdata)
 	keyspace_notifier *n = (keyspace_notifier *)privdata;
 
 	if (r->type == REDIS_REPLY_ARRAY) _handle_redis_array_reply(r, n);
-
-	freeReplyObject(r);
 }
 
 int

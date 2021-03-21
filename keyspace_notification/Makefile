@@ -1,16 +1,19 @@
 CC = gcc
 CFLAGS = -Wall -Werror
-INCLUDES = ../hiredis
-LIBS = hiredis pthread event
+INCLUDES = -I../hiredis
+LIBS = -lhiredis -lpthread -levent
 
-OBJECTS = keyspacenotification.o
-SO = keyspacenotification.so
+OBJ = keyspacenotification.o
+# SO = libnotify.so
+STLIBNAME = libnotify.a
 
-all: $(OBJECTS)
+all: $(STLIBNAME)
 
-keyspacenotification.o: keyspacenotification.c
-	@$(CC) -fPIC $(CFLAGS) -I$(INCLUDES) -c $< -o $@ $(foreach lib, $(LIBS), $(addprefix -l, $(lib)))
-	$(CC) -shared -o $(SO) $@
+$(OBJ): keyspacenotification.c
+	@$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@ $(LIBS)
+
+$(STLIBNAME): $(OBJ)
+	@ar rcs $(STLIBNAME) $(OBJ)
 
 clean:
 	@rm -rf *.o

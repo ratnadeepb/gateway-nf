@@ -20,7 +20,7 @@ typedef struct keyspace_notifier {
 keyspace_notifier *new_keyspace_notifier(const char *hostname, int port);
 
 /* handle set event notifications */
-void handle_set_event(const char* key, const char *event);
+void handle_set_event(const keyspace_notifier *n, const char *event);
 
 /* register for set event notification */
 int notifier_register_set_event(keyspace_notifier *notifier);
