@@ -1,6 +1,6 @@
 # SIFT: Secure, Isolated and Fault Tolerant Packet Processing
 
-SIFT is built on top of [openNetVM](https://github.com/sdnfv/openNetVM)<br>
+SIFT is built on top of [openNetVM](https://github.com/sdnfv/openNetVM)</br>
 It is a framework to assist in writing network functions where:
 
 1. each connection is isolated
@@ -8,6 +8,14 @@ It is a framework to assist in writing network functions where:
 3. all connections maintain their state and can be completely replayed back in case of failure of backends or NFs
 4. packet processing is asynchronous meaning NFs process headers on their own time and send notification back to the gateway NF
 5. the idea is to bring NF processing to the header data rather than to send data to the NFs
+
+One core idea in the design of this framework is that most NFs:
+
+- don't need packet data
+- most need read-only access to header (Ethernet/IP/TCP) data
+- there is not a lot of strict dependency between NF processing; so instead of passing data sequentially through each NF we can get NFs to independently process the data and inform the gateway know:
+    1. they are done with a certain packet
+    2. some parts of the header(s) need to be changed before the packet can be sent to the application
 
 ## Overall Design
 
@@ -78,6 +86,10 @@ This allows the gateway to replay all unacknowledged packets in case of a backen
 - records are disassociated from `rte_mbuf` structs. While this enhances security, it also means that an explicit mapping between `rte_mbufs` and record need to be maintained
 - verifying and merging modified data need to be fast
 - the connection state being maintained may not form fully formed application level messages and replays may be meaningless without synchronisation with an application layer gateway
+
+## Possible Extension
+
+This model cab be extended with ***RDMA to work across a cluster*** of system rather than required to be on a single machine. However, there might be ***other schemes***, like using ***Ethernet only packets*** (this might not have significant cost since all systems are running DPDK) to send headers across systems. Another scheme could be to ***parse the header of each packet as soon as they arrive in the NIC*** without waiting for DPDK to send bursts to the userspace in order to ***collate headers into Ethernet packets and send bursts*** to wherever the data might be required.
 
 ## Note on Testing
 
