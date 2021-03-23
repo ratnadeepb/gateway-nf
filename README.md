@@ -9,11 +9,11 @@ It is a framework to assist in writing network functions where:
 4. packet processing is asynchronous meaning NFs process headers on their own time and send notification back to the gateway NF
 5. the idea is to bring NF processing to the header data rather than to send data to the NFs
 
-One core idea in the design of this framework is that most NFs:
+A few core ideas in the design of this framework is that most NFs:
 
 - don't need packet data
 - most need read-only access to header (Ethernet/IP/TCP) data
-- there is not a lot of strict dependency between NF processing; so instead of passing data sequentially through each NF we can get NFs to independently process the data and inform the gateway know:
+- there is not a lot of strict dependency between NF processing; so instead of passing data sequentially through each NF we can get NFs to independently process the data and inform the gateway:
     1. they are done with a certain packet
     2. some parts of the header(s) need to be changed before the packet can be sent to the application
 
