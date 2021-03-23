@@ -6,6 +6,8 @@ It is a framework to assist in writing network functions where:
 1. each connection is isolated
 2. the data is immutable for the NFs
 3. all connections maintain their state and can be completely replayed back in case of failure of backends or NFs
+4. packet processing is asynchronous meaning NFs process headers on their own time and send notification back to the gateway NF
+5. the idea is to bring NF processing to the header data rather than to send data to the NFs
 
 ## Overall Design
 
@@ -24,6 +26,10 @@ Every record also holds a corresponding bitmap indicating which NFs have complet
 - plus they enable the gateway to know which NFs are yet to process a record and allows to recover easily from NF failures.
 - the global bitmap also allows the gateway to track authorised NFs
 - further maintaining a per-connection bitmap will enable NFs to register for specific connections only
+
+## Sending Processing Completion Notification back to Gateway
+
+We can use Redis streams here where each NF opens up a stream and the Gateway NF subscribes to all these streams. The gateway reads the streams asynchronously and updates the Records (data or the NF bitmap)
 
 ## Record Removal
 
