@@ -89,7 +89,7 @@ This allows the gateway to replay all unacknowledged packets in case of a backen
 
 ## Possible Extension
 
-This model cab be extended with ***RDMA to work across a cluster*** of system rather than required to be on a single machine. However, there might be ***other schemes***, like using ***Ethernet only packets*** (this might not have significant cost since all systems are running DPDK) to send headers across systems. Another scheme could be to ***parse the header of each packet as soon as they arrive in the NIC*** without waiting for DPDK to send bursts to the userspace in order to ***collate headers into Ethernet packets and send bursts*** to wherever the data might be required.
+This model cab be extended with ***RDMA to work across a cluster*** of systems rather than required to be on a single machine. However, there might be ***other schemes***, like using ***Ethernet only packets*** (this might not have significant cost since all systems are running DPDK) to send headers across systems. Another scheme could be to ***parse the header of each packet as soon as they arrive in the NIC*** without waiting for DPDK to send bursts to the userspace in order to ***collate headers into Ethernet packets and send bursts*** to wherever the data might be required.
 
 ## Note on Testing
 
