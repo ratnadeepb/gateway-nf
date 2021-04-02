@@ -1,6 +1,6 @@
 [submodule "dpdk_gw_nf/onvm-dev"]
 	path = dpdk_gw_nf/onvm-dev
-	url = https://github.com/sdnfv/openNetVM-dev.git
+	url = https://github.com/ratnadeepb/openNetVM.git
 [submodule "dpdk_gw_nf/openNetVM-dev"]
 	path = dpdk_gw_nf/openNetVM-dev
 	url = https://github.com/ratnadeepb/openNetVM-dev.git
